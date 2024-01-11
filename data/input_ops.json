@@ -1,0 +1,16 @@
+{
+  "os_ops": [
+	  ["ubuntu", "24.04"],
+	  ["ubuntu", "23.04"],
+	  ["ubuntu", "22.04"],
+	  ["ubuntu", "20.04"],
+	  ["ubuntu", "18.04"]
+  ],
+  "lang_ops": [
+	  ["python", "3.8"],
+	  ["python", "3.9"],
+	  ["python", "3.10"],
+	  ["python", "3.11"],
+	  ["python", "3.12"]
+  ]
+}

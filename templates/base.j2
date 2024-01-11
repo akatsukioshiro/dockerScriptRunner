@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Configuration UI</title>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    #top-navbar {
+      background-color: #333;
+      color: white;
+      padding: 10px;
+      text-align: center;
+    }
+
+    #main-container {
+      display: flex;
+      flex: 1;
+    }
+
+    #sidebar {
+      width: 15%;
+      background-color: #333;
+      color: white;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+
+    #content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 20px;
+      box-sizing: border-box;
+      overflow-y: scroll;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 10px;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      padding: 8px;
+      margin-bottom: 15px;
+      box-sizing: border-box;
+    }
+
+    button {
+      background-color: #4caf50;
+      color: white;
+      padding: 10px 15px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #45a049;
+    }
+
+    textarea {
+      flex: 1;
+      width: 100%;
+      margin-bottom: 15px;
+    }
+  </style>
+</head>
+<body>
+  <div id="top-navbar">
+    <h1>Configuration App</h1>
+  </div>
+
+  <div id="main-container">
+    <div id="sidebar">
+      <label for="cpuSlider">Select CPUs: <span id="cpuValue">1</span> / {{ sys_ops.get("proc_count") }}</label>
+      <input type="range" id="cpuSlider" min="1" max='{{ sys_ops.get("proc_count") }}' value="1" oninput="updateSliderValue('cpuValue', this.value)">
+
+      <label for="ramSlider">Select RAM (GB): <span id="ramValue">0.1</span> / {{ sys_ops.get("mem_in_gbs") }}</label>
+      <input type="range" id="ramSlider" min="0.1" max='{{ sys_ops.get("mem_in_gbs") }}' step="0.1" value="0.1" oninput="updateSliderValue('ramValue', this.value)">
+
+      <label for="fileInput">Upload File:</label>
+      <input type="file" id="fileInput">
+
+      <label for="osDropdown">Select OS:</label>
+      <select id="osDropdown" size='{{ inp_ops.get("os_ops", []) | length }}'>
+      {% for os_item in inp_ops.get("os_ops", []) %}
+        <option value="{{ os_item[0] }} : {{ os_item[1] }}">{{ os_item[0] }} : {{ os_item[1] }}</option>
+      {% endfor %}
+        <!-- Add more options as needed -->
+      </select>
+
+      <label for="scriptLanguage">Select Script Language:</label>
+      <select id="scriptLanguage">
+      {% for lang_item in inp_ops.get("lang_ops", []) %}
+      <option value="python">{{ lang_item[0] }} : {{ lang_item[1] }}</option>
+      {% endfor %}
+        <!-- Add more options as needed -->
+      </select>
+
+      <button onclick="submitForm()">Submit</button>
+    </div>
+
+    <div id="content">
+      <label for="inputTextarea">Input:</label>
+      <textarea id="inputTextarea"></textarea>
+
+      <label for="outputTextarea">Output:</label>
+      <textarea id="outputTextarea" readonly></textarea>
+    </div>
+  </div>
+
+  <script>
+    function updateSliderValue(elementId, value) {
+      document.getElementById(elementId).innerText = value;
+    }
+
+    function submitForm() {
+      let cpu_value = document.getElementById("cpuValue").textContent;
+      let ram_value = document.getElementById("ramValue").textContent;
+      let os_drdown = document.getElementById("osDropdown").value;
+      let script_ln = document.getElementById("scriptLanguage").value;
+      let inp_tarea = document.getElementById("inputTextarea").value;
+    }
+  </script>
+</body>
+</html>
+
