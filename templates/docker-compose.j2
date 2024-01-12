@@ -1,0 +1,11 @@
+version: '3.8'
+services:
+  job_runner:
+    build: .
+    container_name: "{{ session_name }}"
+    hostname: "{{ session_name }}"
+    volumes:
+      -  {{ session_dir }}:/{{ session_name }}
+volumes:
+  job_runner:
+    driver: local

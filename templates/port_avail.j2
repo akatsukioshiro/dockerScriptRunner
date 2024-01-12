@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Port Status Table</title>
+    <style>
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+
+<h2>Port Status Table</h2>
+
+<table>
+    <thead>
+        <tr>
+            <th>PORT</th>
+            <th>STATUS</th>
+            <th>SOURCE_IP</th>
+            <th>INACTIVITY_TIMER</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for entry in port_status_entries %}
+            <tr>
+                <td>{{ entry.port }}</td>
+                <td>{{ entry.status }}</td>
+                <td>{{ entry.source_ip }}</td>
+                <td>{{ entry.inactivity_timer }}</td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+</body>
+</html>

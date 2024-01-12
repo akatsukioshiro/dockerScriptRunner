@@ -89,12 +89,12 @@
       <input type="range" id="ramSlider" min="0.1" max='{{ sys_ops.get("mem_in_gbs") }}' step="0.1" value="0.1" oninput="updateSliderValue('ramValue', this.value)">
 
       <label for="fileInput">Upload File:</label>
-      <input type="file" id="fileInput">
+      <input type="file" id="fileInput" accept=".zip">
 
       <label for="osDropdown">Select OS:</label>
       <select id="osDropdown" size='{{ inp_ops.get("os_ops", []) | length }}'>
       {% for os_item in inp_ops.get("os_ops", []) %}
-        <option value="{{ os_item[0] }} : {{ os_item[1] }}">{{ os_item[0] }} : {{ os_item[1] }}</option>
+        <option value="{{ os_item[0] }}:{{ os_item[1] }}">{{ os_item[0] }} : {{ os_item[1] }}</option>
       {% endfor %}
         <!-- Add more options as needed -->
       </select>
@@ -102,7 +102,7 @@
       <label for="scriptLanguage">Select Script Language:</label>
       <select id="scriptLanguage">
       {% for lang_item in inp_ops.get("lang_ops", []) %}
-      <option value="python">{{ lang_item[0] }} : {{ lang_item[1] }}</option>
+      <option value="python{{ lang_item[1] }}">{{ lang_item[0] }} : {{ lang_item[1] }}</option>
       {% endfor %}
         <!-- Add more options as needed -->
       </select>
@@ -120,16 +120,91 @@
   </div>
 
   <script>
+
+    let inactiveTime = 0;  // Variable to hold inactive time in minutes
+    const thisPort = {{ this_port}};  // Replace with your actual port value
+
+    function resetInactiveTime() {
+        inactiveTime = 0;
+    }
+
+    function incrementInactiveTime() {
+        inactiveTime += 1;
+    }
+
+    function checkInactivity() {
+        // Add event listeners for mouse move and keyboard events to reset inactivity
+        window.addEventListener('mousemove', resetInactiveTime);
+        window.addEventListener('keydown', resetInactiveTime);
+
+        // Increment inactive time every second
+        setInterval(() => {
+            incrementInactiveTime();
+
+            // Send fetch request to the specified URL
+            const url = `http://localhost:8778/port_heartbeat?this_port=${thisPort}&inactive=${inactiveTime}`;
+            
+            fetch(url)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Failed to send heartbeat.');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Heartbeat sent successfully:', data);
+                })
+                .catch(error => {
+                    console.error('Error sending heartbeat:', error);
+                });
+            
+            // Reset inactive time after sending the heartbeat
+            resetInactiveTime();
+        }, 60000);  // Check every minute
+    }
+    // Start the checkInactivity function
+    checkInactivity();
+
     function updateSliderValue(elementId, value) {
       document.getElementById(elementId).innerText = value;
     }
 
-    function submitForm() {
+    async function submitForm() {
       let cpu_value = document.getElementById("cpuValue").textContent;
       let ram_value = document.getElementById("ramValue").textContent;
       let os_drdown = document.getElementById("osDropdown").value;
       let script_ln = document.getElementById("scriptLanguage").value;
       let inp_tarea = document.getElementById("inputTextarea").value;
+      let zip_file  = document.getElementById("fileInput").files[0];
+      
+      let inp_info = {
+        cpu_value: cpu_value,
+	ram_value: ram_value,
+	os_drdown: os_drdown,
+	script_ln: script_ln,
+	inp_tarea: inp_tarea,
+	session_p: "{{ session_path }}"
+      }
+
+      let formData  = new FormData();
+      formData.append("zip_file", zip_file);
+      formData.append("inp_info", JSON.stringify(inp_info));
+
+      const ctrl = new AbortController()    // timeout
+      setTimeout(() => ctrl.abort(), 5000);
+
+      try {
+        let r = await fetch('/process_code_zip', 
+          { 
+	    method: "POST", 
+	    body: formData, 
+	    signal: ctrl.signal
+	  }); 
+        
+	console.log('HTTP response code:',r.status); 
+      } catch(e) {
+        console.log('Huston we have problem...:', e);
+      }
     }
   </script>
 </body>
