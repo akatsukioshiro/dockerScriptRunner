@@ -121,25 +121,21 @@
 
   <script>
 
-    let inactiveTime = 0;  // Variable to hold inactive time in minutes
     const thisPort = {{ this_port}};  // Replace with your actual port value
 
-    function resetInactiveTime() {
-        inactiveTime = 0;
-    }
-
-    function incrementInactiveTime() {
-        inactiveTime += 1;
-    }
-
     function checkInactivity() {
+        let inactiveTime = 0;  // Variable to hold inactive time in minutes
         // Add event listeners for mouse move and keyboard events to reset inactivity
         window.addEventListener('mousemove', resetInactiveTime);
         window.addEventListener('keydown', resetInactiveTime);
 
+        function resetInactiveTime() {
+            inactiveTime = 0;
+        }
+
         // Increment inactive time every second
         setInterval(() => {
-            incrementInactiveTime();
+            inactiveTime += 1;
 
             // Send fetch request to the specified URL
             const url = `http://localhost:8778/port_heartbeat?this_port=${thisPort}&inactive=${inactiveTime}`;
@@ -158,8 +154,6 @@
                     console.error('Error sending heartbeat:', error);
                 });
             
-            // Reset inactive time after sending the heartbeat
-            resetInactiveTime();
         }, 60000);  // Check every minute
     }
     // Start the checkInactivity function
