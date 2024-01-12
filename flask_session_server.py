@@ -36,7 +36,7 @@ def port_alloc():
     base_path    = "/mnt/f/Desktop/test/dockerScriptRunner"
     session_path = os.path.join(base_path, "session_dir", timestamp)
     os.makedirs(session_path)
-    trig_cmd = "nohup {base_path}/env/bin/python run_flask_server.py --port {this_port} --session {timestamp} > {base_path}/logs/{timestamp}/flask_log.txt 2>&1 &".format(base_path=base_path, timestamp=timestamp, this_port=str(this_port))
+    trig_cmd = "nohup {base_path}/env/bin/python run_flask_server.py --port {this_port} --session {timestamp} > {base_path}/logs/flask_log_{timestamp}.txt 2>&1 &".format(base_path=base_path, timestamp=timestamp, this_port=str(this_port))
     os.system(trig_cmd)
     return json.dumps({'success': True, 'this_port': str(this_port), 'session': timestamp}), 200, {'ContentType':'application/json'}
 
