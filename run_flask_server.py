@@ -25,11 +25,6 @@ CORS(app, resources={r"/session_allocate": {"origins": "*"}})
 
 @app.before_request
 def check_session():
-    print(session.get('session_id'), request.args.get('session_id'))
-    logging.info(session.get('session_id'))
-    logging.info(request.args.get('session_id'))
-    logging.info(session)
-
     if request.path == '/session_allocate':
         return None
     elif request.path != '/session_allocate':

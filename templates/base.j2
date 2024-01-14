@@ -153,13 +153,12 @@
             inactiveTime = 0;
         }
 
-        // Increment inactive time every second
-        setInterval(() => {
+        function sendHeartbeat() {
             inactiveTime += 1/60;
 
             // Send fetch request to the specified URL
-	    const url = `http://localhost:8778/port_heartbeat?this_port=${thisPort}&inactive=${inactiveTime}&identity=${identity_timestamp}`;
-            
+            const url = `http://localhost:8778/port_heartbeat?this_port=${thisPort}&inactive=${inactiveTime}&identity=${identity_timestamp}`;
+
             fetch(url)
                 .then(response => {
                     if (!response.ok) {
@@ -169,19 +168,20 @@
                 })
                 .then(data => {
                     console.log('Heartbeat sent successfully:', data);
-		    if(data.duplicate != "")
-		    {
-		        for (let i = 1; i < 99999; i++) {
+                    if (data.duplicate !== "") {
+                        for (let i = 1; i < 99999; i++) {
                             clearTimeout(i);
                         }
-			document.documentElement.innerHTML = data.duplicate;
-		    }
+                        document.documentElement.innerHTML = data.duplicate;
+                    }
                 })
                 .catch(error => {
                     console.error('Error sending heartbeat:', error);
                 });
-            
-        }, 1000);  // Check every minute
+        }
+        sendHeartbeat();
+        setInterval(sendHeartbeat, 1000);
+
     }
     // Start the checkInactivity function
     checkInactivity();

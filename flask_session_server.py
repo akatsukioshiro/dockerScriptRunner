@@ -1,12 +1,46 @@
 from flask import Flask, render_template, request
-import socket, json, os
+import socket, json, os, time
 from datetime import datetime
 from flask_cors import CORS
+import threading
+import logging
+import psutil
 
 app = Flask(__name__)
 
 CORS(app, resources={r"/port_heartbeat": {"origins": "*"}})
+logging.basicConfig(filename=os.path.join('/mnt/f/Desktop/test/dockerScriptRunner/logs', 'session_server_{session}.txt'.format(session=datetime.now().strftime("%Y_%m_%d_%H_%M_%S"))), level=logging.INFO)
 port_in_use = {}
+
+def scheduled_task():
+    global port_in_use
+    # Your task logic here
+    to_unassign = []
+    for ports in port_in_use:
+        if int((datetime.strptime(port_in_use[ports]["last_beat"], "%Y_%m_%d_%H_%M_%S")-datetime.now()).total_seconds() / 60)*-1 >= 5:
+            to_unassign.append(ports)
+        elif int(float(port_in_use[ports]["inactivity_timer"])) >= 5:
+            to_unassign.append(ports)
+    for ports in to_unassign:
+        port_in_use.pop(ports)
+        for process in psutil.process_iter(['pid', 'name', 'cmdline']):
+            if "python" == process.info['name']:
+                if len(process.info['cmdline']) == 6:
+                    if process.info['cmdline'][1] == "run_flask_server.py":
+                        if process.info['cmdline'][3] == ports:
+                            print(process.info['pid'], process.info['name'], process.info['cmdline'])
+                            os.kill(process.info['pid'], 9)
+        print(f"Port: {ports} is now free!")
+        logging.info(f"Port: {ports} is now free!")
+    to_unassign = []
+    print("Executing scheduled task")
+    logging.info("Executing scheduled task")
+
+
+def run_scheduled_tasks():
+    while True:
+        scheduled_task()
+        time.sleep(30)
 
 @app.route('/')
 def index():
@@ -22,6 +56,7 @@ def is_port_free(port):
 
 @app.route('/port_allocate')
 def port_alloc():
+    global port_in_use
     this_port = 0
     for this_port in range(49152, 65536, 1):
         if str(this_port) not in port_in_use:
@@ -31,8 +66,9 @@ def port_alloc():
                 client_ip = request.headers.get('X-Forwarded-For')
                 if not client_ip:
                     client_ip = request.remote_addr
-                port_in_use[str(this_port)] = { "source_ip": [client_ip], "inactivity_timer": "0", "identity": "" }
+                port_in_use[str(this_port)] = { "source_ip": [client_ip], "inactivity_timer": "0", "identity": "", "last_beat": datetime.now().strftime("%Y_%m_%d_%H_%M_%S") }
                 break
+
     timestamp    = datetime.now().strftime("%Y_%m_%d_%H_%M_%S_%f")
     base_path    = "/mnt/f/Desktop/test/dockerScriptRunner"
     session_path = os.path.join(base_path, "session_dir", timestamp)
@@ -61,6 +97,7 @@ def port_avail():
 
 @app.route('/port_heartbeat')
 def port_hb():
+    global port_in_use
     duplicate_msg = ""
     # Attempt to get the client IP from X-Forwarded-For header (common in proxy setups)
     client_ip = request.headers.get('X-Forwarded-For')
@@ -78,6 +115,7 @@ def port_hb():
 
         print("ip", client_ip, port_in_use[this_port]["source_ip"])
         print("identity", port_in_use[this_port]["identity"], request.args.get("identity"))
+        port_in_use[this_port]["last_beat"] = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
         if port_in_use[this_port]["identity"] == "":
             port_in_use[this_port]["identity"] = request.args.get("identity")
         if client_ip not in port_in_use[this_port]["source_ip"]:
@@ -91,5 +129,8 @@ def port_hb():
 
 
 if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=8778)
+    background_thread = threading.Thread(target=run_scheduled_tasks)
+    background_thread.start()
+    
+    app.run(host="0.0.0.0", port=8778) #never put this server in debug mode, all functions begin to fail
 
