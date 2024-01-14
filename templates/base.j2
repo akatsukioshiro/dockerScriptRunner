@@ -123,6 +123,26 @@
 
     const thisPort = {{ this_port}};  // Replace with your actual port value
 
+    function getTimestampString() {
+        // Create a new Date object representing the current date and time
+        const currentDate = new Date();
+
+        // Get individual components of the date and time
+        const year = currentDate.getFullYear();
+        const month = String(currentDate.getMonth() + 1).padStart(2, '0'); // Months are zero-indexed
+        const day = String(currentDate.getDate()).padStart(2, '0');
+        const hours = String(currentDate.getHours()).padStart(2, '0');
+        const minutes = String(currentDate.getMinutes()).padStart(2, '0');
+        const seconds = String(currentDate.getSeconds()).padStart(2, '0');
+        const milliseconds = String(currentDate.getMilliseconds()).padStart(3, '0');
+
+        // Create the timestamp string in the desired format
+        const timestampString = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${milliseconds}`;
+
+        return timestampString;
+    }
+    const identity_timestamp = getTimestampString();
+
     function checkInactivity() {
         let inactiveTime = 0;  // Variable to hold inactive time in minutes
         // Add event listeners for mouse move and keyboard events to reset inactivity
@@ -135,10 +155,10 @@
 
         // Increment inactive time every second
         setInterval(() => {
-            inactiveTime += 1;
+            inactiveTime += 1/60;
 
             // Send fetch request to the specified URL
-            const url = `http://localhost:8778/port_heartbeat?this_port=${thisPort}&inactive=${inactiveTime}`;
+	    const url = `http://localhost:8778/port_heartbeat?this_port=${thisPort}&inactive=${inactiveTime}&identity=${identity_timestamp}`;
             
             fetch(url)
                 .then(response => {
@@ -149,12 +169,19 @@
                 })
                 .then(data => {
                     console.log('Heartbeat sent successfully:', data);
+		    if(data.duplicate != "")
+		    {
+		        for (let i = 1; i < 99999; i++) {
+                            clearTimeout(i);
+                        }
+			document.documentElement.innerHTML = data.duplicate;
+		    }
                 })
                 .catch(error => {
                     console.error('Error sending heartbeat:', error);
                 });
             
-        }, 60000);  // Check every minute
+        }, 1000);  // Check every minute
     }
     // Start the checkInactivity function
     checkInactivity();
@@ -188,7 +215,7 @@
       setTimeout(() => ctrl.abort(), 5000);
 
       try {
-        let r = await fetch('/process_code_zip', 
+	      let r = await fetch('/process_code_zip?session_id={{ session_id }}', 
           { 
 	    method: "POST", 
 	    body: formData, 

@@ -4,6 +4,7 @@ from datetime import datetime
 from flask_cors import CORS
 
 app = Flask(__name__)
+
 CORS(app, resources={r"/port_heartbeat": {"origins": "*"}})
 port_in_use = {}
 
@@ -30,7 +31,7 @@ def port_alloc():
                 client_ip = request.headers.get('X-Forwarded-For')
                 if not client_ip:
                     client_ip = request.remote_addr
-                port_in_use[str(this_port)] = { "source_ip": [client_ip], "inactivity_timer": "0" }
+                port_in_use[str(this_port)] = { "source_ip": [client_ip], "inactivity_timer": "0", "identity": "" }
                 break
     timestamp    = datetime.now().strftime("%Y_%m_%d_%H_%M_%S_%f")
     base_path    = "/mnt/f/Desktop/test/dockerScriptRunner"
@@ -60,6 +61,7 @@ def port_avail():
 
 @app.route('/port_heartbeat')
 def port_hb():
+    duplicate_msg = ""
     # Attempt to get the client IP from X-Forwarded-For header (common in proxy setups)
     client_ip = request.headers.get('X-Forwarded-For')
 
@@ -70,16 +72,22 @@ def port_hb():
     this_port = request.args.get("this_port")
     inactive  = request.args.get("inactive")
     if port_in_use.get(this_port, "NA") == "NA":
-        port_in_use[this_port] = { "source_ip": [client_ip], "inactivity_timer": inactive }
+        duplicate_msg = "Why you are seeing this message? - Session Unassigned"
     else:
         port_in_use[this_port]["inactivity_timer"] = inactive
 
+        print("ip", client_ip, port_in_use[this_port]["source_ip"])
+        print("identity", port_in_use[this_port]["identity"], request.args.get("identity"))
+        if port_in_use[this_port]["identity"] == "":
+            port_in_use[this_port]["identity"] = request.args.get("identity")
         if client_ip not in port_in_use[this_port]["source_ip"]:
-            port_in_use[this_port]["source_ip"].append(client_ip)
+            duplicate_msg = "Why you are seeing this message? - Duplicate TAB not allowed"
+        elif port_in_use[this_port]["identity"] != request.args.get("identity"):
+            duplicate_msg = "Why you are seeing this message? - Duplicate TAB not allowed"
 
     print(port_in_use)
 
-    return json.dumps({'success':True}), 200, {'ContentType':'application/json'}
+    return json.dumps({'success':True, 'duplicate': duplicate_msg}), 200, {'ContentType':'application/json'}
 
 
 if __name__ == '__main__':

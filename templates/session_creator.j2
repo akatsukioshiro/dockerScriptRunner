@@ -65,6 +65,23 @@
 
         createSessionBtn.addEventListener('click', createNewSession);
 
+        async function asyncSessionSet(urlWithPort, session_name) {
+            try {
+		const response = await fetch(`${urlWithPort}/session_allocate`);
+		const data = await response.json();
+		if(data.session_id=="")
+		{
+		    document.getElementById(session_name).remove();
+		}
+		else
+	        {
+		    window.open(`${urlWithPort}/?session_id=${data.session_id}`, '_blank');
+		}
+            } catch (error) {
+                console.error('Error in asyncSessionSet:', error);
+            }
+        }
+
 	async function createNewSession() {
             try {
                 // Fetch the port allocation information
@@ -76,11 +93,12 @@
 		    const sessionName = `Session: ${data.session} - ${new Date().toLocaleTimeString()}`;
                     sessionDiv.textContent = sessionName;
                     sessionDiv.className = 'sessionBox';
+		    sessionDiv.id = data.session
 
                     // Open link in a new tab with the allocated port
                     const urlWithPort = `http://localhost:${data.this_port}`;
                     sessionDiv.addEventListener('click', function () {
-                        window.open(urlWithPort, '_blank');
+                        asyncSessionSet(urlWithPort, data.session);
                     });
 
                     sessionContainer.appendChild(sessionDiv);
