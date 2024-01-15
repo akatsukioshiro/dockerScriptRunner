@@ -107,7 +107,7 @@
         <!-- Add more options as needed -->
       </select>
 
-      <button onclick="submitForm()">Submit</button>
+      <button id="submit-btn" onclick="submitForm()">Submit</button>
     </div>
 
     <div id="content">
@@ -122,6 +122,21 @@
   <script>
 
     const thisPort = {{ this_port}};  // Replace with your actual port value
+    
+    var source = new EventSource("{{ url_for('sse.stream') }}");
+
+    source.addEventListener('output_stream', (event) => {
+        const output = JSON.parse(event.data).output;
+        document.getElementById("outputTextarea").textContent += `${output}\n`;
+    });
+
+    source.addEventListener('output_stop', (event) => {
+        const output_status = JSON.parse(event.data).output_status;
+	if(output_status == "completed")
+        {
+            document.getElementById("submit-btn").disabled = false;
+	}
+    });
 
     function getTimestampString() {
         // Create a new Date object representing the current date and time
@@ -191,6 +206,8 @@
     }
 
     async function submitForm() {
+      document.getElementById("submit-btn").disabled = true;
+      document.getElementById("outputTextarea").innerHTML = "";
       let cpu_value = document.getElementById("cpuValue").textContent;
       let ram_value = document.getElementById("ramValue").textContent;
       let os_drdown = document.getElementById("osDropdown").value;

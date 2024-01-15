@@ -1,12 +1,16 @@
-from flask import Flask, render_template, request, session
+from flask import Flask, render_template, request, session, Response
 from flask_session import Session
 from flask_cors import CORS
+from flask_sse import sse
 import uuid
-import os, json, zipfile, shutil, argparse
+import os, json, zipfile, shutil, argparse, subprocess, time
 import logging
+import queue
+import threading
 #from datetime import datetime
 
 app = Flask(__name__)
+app.config["REDIS_URL"] = "redis://localhost:6379"
 
 DEFAULT_PORT = 5000
 parser = argparse.ArgumentParser(description='Run a Flask application with a custom port.')
@@ -23,11 +27,39 @@ Session(app)
 CORS(app, resources={r"/session_allocate": {"origins": "*"}})
 #CORS(app, resources={r"/session_allocate": {"origins": "http://localhost:8778 https://localhost:8778", "allow_headers": "*"}})
 
+app.register_blueprint(sse, url_prefix='/stream')
+
+command_queue = queue.Queue()
+
+def background_thread():
+    while True:
+        try:
+            # Get command from the queue
+            command = command_queue.get_nowait()
+        except Exception as e:
+            time.sleep(1)
+            continue
+
+        # Execute the command using subprocess
+        process = subprocess.Popen(command.get("command", "").split(), cwd=command.get("folder_path", ""), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+        # Stream output to SSE
+        for line in iter(process.stdout.readline, ''):
+            with app.test_request_context():
+                sse.publish({"output": line.strip()}, type='output_stream')
+
+        # Wait for the process to complete
+        process.wait()
+
+        # Stream completion status to SSE
+        with app.test_request_context():
+            sse.publish({"output_status": "completed"}, type='output_stop')
+
 @app.before_request
 def check_session():
-    if request.path == '/session_allocate':
+    if request.path in ['/session_allocate', '/stream']:
         return None
-    elif request.path != '/session_allocate':
+    elif request.path not in ['/session_allocate', '/stream']:
         client_ip = request.headers.get('X-Forwarded-For')
         if not client_ip:
             client_ip = request.remote_addr
@@ -126,7 +158,16 @@ def process_code():
         with open(os.path.join(inp_info.get("session_p"), "runScript.sh"), "w+") as f:
             f.write(run_script_templ)
 
+        command_queue.put(
+                {
+                    "command": "docker-compose up",
+                    "folder_path": inp_info.get("session_p")
+                }
+                )
+
     return json.dumps({'success':True}), 200, {'ContentType':'application/json'}
 
 if __name__ == '__main__':
+    bg_thread = threading.Thread(target=background_thread)
+    bg_thread.start()
     app.run(debug=True, host="0.0.0.0", port=this_port)
