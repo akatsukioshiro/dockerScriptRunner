@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Session UI</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Arial', sans-serif;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        .navbar {
+            width: 200px;
+            background-color: #333;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        #createSessionBtn {
+            width: 100%;
+            padding: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        .workspace {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .sessionBox {
+            background-color: #f1f1f1;
+            margin-bottom: 10px;
+            padding: 10px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <nav class="navbar">
+        <button id="createSessionBtn">Create New Session</button>
+    </nav>
+
+    <div class="workspace" id="sessionContainer">
+        <!-- Sessions will be dynamically added here -->
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const createSessionBtn = document.getElementById('createSessionBtn');
+        const sessionContainer = document.getElementById('sessionContainer');
+
+        createSessionBtn.addEventListener('click', createNewSession);
+
+        async function asyncSessionSet(urlWithPort, session_name) {
+            try {
+		const response = await fetch(`${urlWithPort}/session_allocate`);
+		const data = await response.json();
+		if(data.session_id=="")
+		{
+		    document.getElementById(session_name).remove();
+		}
+		else
+	        {
+		    window.open(`${urlWithPort}/?session_id=${data.session_id}`, '_blank');
+		}
+            } catch (error) {
+                console.error('Error in asyncSessionSet:', error);
+            }
+        }
+
+	async function createNewSession() {
+            try {
+                // Fetch the port allocation information
+                const response = await fetch('/port_allocate');
+                const data = await response.json();
+
+                if (data.success) {
+                    const sessionDiv = document.createElement('div');
+		    const sessionName = `Session: ${data.session} - ${new Date().toLocaleTimeString()}`;
+                    sessionDiv.textContent = sessionName;
+                    sessionDiv.className = 'sessionBox';
+		    sessionDiv.id = data.session
+
+                    // Open link in a new tab with the allocated port
+                    const urlWithPort = `http://localhost:${data.this_port}`;
+                    sessionDiv.addEventListener('click', function () {
+                        asyncSessionSet(urlWithPort, data.session);
+                    });
+
+                    sessionContainer.appendChild(sessionDiv);
+                } else {
+                    console.error('Failed to allocate port.');
+                }
+            } catch (error) {
+                console.error('Error fetching port allocation:', error);
+            }
+        }
+
+    });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,23 @@
+{
+  "test_user_1": {
+    "history_seq": [
+      "2024_01_31_00_19_59_232988"
+    ],
+    "history": {
+      "2024_01_31_00_19_59_232988": {
+        "ws_port": 50593,
+        "cpu_count": "1",
+        "ram_val": "0.1",
+        "os_selected": "",
+        "run_type": "single-run",
+        "server_time": "2024_01_31_00_19_59_232988",
+        "file_name": "test_code.zip",
+        "event_source": "http://localhost:50593"
+      }
+    }
+  },
+  "test_user_2": {
+    "history_seq": [],
+    "history": {}
+  }
+}

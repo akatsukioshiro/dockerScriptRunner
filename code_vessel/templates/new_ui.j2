@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>redShift</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #f4f4f4;
+        }
+
+        #navbar {
+            background-color: #2c3e50;
+            color: white;
+            text-align: center;
+            padding: 10px;
+            font-size: 24px;
+        }
+
+        #footer {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            background-color: #2c3e50;
+            color: white;
+            text-align: center;
+            padding: 10px;
+            font-size: 14px;
+        }
+
+        #left-panel {
+            float: left;
+            width: 250px;
+            padding: 20px;
+            background-color: #34495e;
+            height: 100vh;
+            overflow-y: auto;
+            color: white;
+        }
+
+        #left-panel label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 16px;
+        }
+
+        #left-panel input,
+        #left-panel select {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 15px;
+            box-sizing: border-box;
+            border: 1px solid #95a5a6;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        #left-panel button {
+            background-color: #e74c3c;
+            color: white;
+            padding: 10px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        #workspace {
+            margin-left: 250px;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+	.run-details {
+            position: relative;
+            border: 1px solid #bdc3c7;
+            background-color: white;
+            margin-bottom: 10px;
+            padding: 10px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .run-details:hover {
+            background-color: #ecf0f1;
+        }
+
+        .disconnect-btn {
+            position: absolute;
+            top: 50%;
+            right: 5px;
+            transform: translateY(-50%);
+            background-color: #e74c3c;
+            color: white;
+            padding: 5px 10px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .disconnect-btn:hover {
+            background-color: #c0392b;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.7);
+        }
+
+        .modal-content {
+            background-color: #fff;
+            margin: 5% auto;
+            padding: 20px;
+            width: 70%;
+            border-radius: 4px;
+            position: relative;
+        }
+
+        .close-outside {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            color: #aaa;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .modal-section {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            margin-top: 10px;
+            border-radius: 4px;
+        }
+
+        #json-input,
+        #json-output {
+            width: 100%;
+            padding: 10px;
+            box-sizing: border-box;
+            border: 1px solid #95a5a6;
+            border-radius: 4px;
+            font-size: 14px;
+            resize: none;
+        }
+
+        .modal button {
+            background-color: #3498db;
+            color: white;
+            padding: 10px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .modal button:hover {
+            background-color: #2980b9;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="navbar">redShift</div>
+
+    <div id="left-panel">
+        <label for="cpu-slider">CPU Cores: <span id="cpuValue">1</span> / {{ sys_ops.get('proc_count', 1) }}</label>
+        <input type="range" id="cpu-slider" min="1" max="{{ sys_ops.get('proc_count', 1) }}" value="1" oninput="updateSliderValue('cpuValue', this.value)">
+        <br>
+
+        <label for="ram-slider">RAM: <span id="ramValue">0.1</span> / {{ sys_ops.get('mem_in_gbs', 1) }}</label>
+	<input type="range" id="ram-slider" min="0.1" max="{{ sys_ops.get('mem_in_gbs', 1) }}" step="0.1" value="0.1" oninput="updateSliderValue('ramValue', this.value)">
+        <br>
+
+        <label for="os-dropdown">OS:</label>
+        <select id="os-dropdown" size='{{ inp_ops.get("os_ops", []) | length }}'>
+        {% for os_item in inp_ops.get("os_ops", []) %}<option value="{{ os_item[0] }}:{{ os_item[1] }}">{{ os_item[0] }} : {{ os_item[1] }}</option>
+        {% endfor %}
+        </select>
+        <br>
+
+        <label for="file-upload">Upload Zip:</label>
+        <input type="file" id="file-upload" accept=".zip">
+        <br>
+
+        <label for="run-type-dropdown">Run Type:</label>
+        <select id="run-type-dropdown">
+            <option value="single-run">Single Run</option>
+            <option value="service">Service</option>
+        </select>
+        <br>
+
+        <button onclick="createWorker()">Ignite</button>
+    </div>
+
+    <div id="workspace"></div>
+
+    <div id="footer">Copyrights</div>
+
+    <div id="myModal" class="modal">
+        <div class="modal-content">
+            <span class="close-outside" onclick="closeModal()">&times;</span>
+            <div id="input-section" class="modal-section">
+                <h3>Input</h3>
+                <textarea id="json-input" rows="6"></textarea>
+            </div>
+            <div id="output-section" class="modal-section">
+                <h3>Output</h3>
+                <textarea id="json-output" rows="10"></textarea>
+            </div>
+            <button id="rerun-btn">Re-Run</button>
+        </div>
+    </div>
+
+    <script>
+	var eventSourcesDict = {};
+	var input_output = {};
+
+        function updateSliderValue(elementId, value) {
+            document.getElementById(elementId).innerText = value;
+        }
+
+        function createHistory(cpu_count, ram_val, os_selected, file_name, run_type, server_time, event_source) {
+            var details = "CPU Cores: " + cpu_count +
+                ", RAM: " + ram_val +
+                ", OS: " + os_selected +
+                ", File: " + file_name +
+                ", Run Type: " + run_type;
+            var timestamp = server_time;
+
+            var modal = document.getElementById("myModal");
+            var workspaceDiv = document.getElementById("workspace");
+            var newDiv = document.createElement("div");
+            newDiv.className = "run-details";
+	    newDiv.id = document.getElementsByClassName("run-details").length.toString();
+	    eventSourcesDict[newDiv.id] = new EventSource(`${event_source}/stream`);
+            input_output[newDiv.id] = "";
+	    setTimeout(() => {
+	        eventSourcesDict[newDiv.id].addEventListener('output_stream', (event) => {
+                    const output = JSON.parse(event.data).output;
+                    if (modal.style.display == "block" && modal.getAttribute("data-parent_id") == newDiv.id )
+		    {
+		        document.getElementById("json-output").textContent += `${output}\n`;
+		        input_output[newDiv.id] += `${output}\n`;
+		    }
+		    else if (modal.style.display == "" || modal.getAttribute("data-parent_id") != newDiv.id )
+		    {
+		        input_output[newDiv.id] += `${output}\n`;
+		    }
+                });
+
+		eventSourcesDict[newDiv.id].onopen = function(event) {
+                    console.log('Connection to event source successful.');
+                    // You can display a success message to the user here
+                };
+
+                eventSourcesDict[newDiv.id].onerror = function(error) {
+                    console.error('Error with event source:', error);
+                    eventSourcesDict[newDiv.id].close(); // Close the EventSource on error
+                };
+
+	    }, 45000); // 45 seconds delay
+
+            eventSourcesDict[newDiv.id].addEventListener('output_stop', (event) => {
+                const output_status = JSON.parse(event.data).output_status;
+                if(output_status == "completed")
+                {
+                    document.getElementById("submit-btn").disabled = false;
+                }
+            });
+	    
+            newDiv.innerHTML = "<p>" + details + "</p><p>" + timestamp + "</p>";
+            newDiv.onclick = function () {
+                openModal(newDiv.id);
+            };
+
+            var disconnectBtn = document.createElement("button");
+            disconnectBtn.className = "disconnect-btn";
+            disconnectBtn.innerHTML = "Disconnect";
+            disconnectBtn.onclick = function (event) {
+                event.stopPropagation();
+                disconnect(newDiv);
+            };
+
+            newDiv.appendChild(disconnectBtn);
+            workspaceDiv.appendChild(newDiv);
+        }
+
+	async function createWorker() {
+	    try {
+                    let zip_file   = document.getElementById("file-upload").files[0];
+
+		    let inp_info = {
+                        cpu_count:   document.getElementById("cpu-slider").value,
+                        ram_val:     document.getElementById("ram-slider").value,
+                        os_selected: document.getElementById("os-dropdown").value,
+                        run_type:    document.getElementById("run-type-dropdown").value,
+			commands: '{ "jobs": [] }'
+                        }
+
+                    let formData  = new FormData();
+		    formData.append("username", "{{ username }}");
+                    formData.append("zip_file", zip_file);
+                    formData.append("inp_info", JSON.stringify(inp_info));
+		    
+                    const ctrl = new AbortController()    // timeout
+                    setTimeout(() => ctrl.abort(), 60000);
+
+		    const response = await fetch(`/start_server`, {
+                        method: "POST",
+                        body: formData,
+                        signal: ctrl.signal
+		    });
+		    
+                    const data = await response.json();
+		    console.log(data);
+		    if (data.success) {
+		        createHistory(data.cpu_count, data.ram_val, data.os_selected, data.file_name, data.run_type, data.server_time, data.event_source)
+		    } 
+		    else {
+                        console.error('Failed to allocate port.');
+                    }
+                } 
+	    catch (error) {
+                console.error('Error fetching port allocation:', error);
+            }
+        }
+
+        function disconnect(div) {
+            div.remove();
+        }
+
+        function openModal(parent_id) {
+            var inputContent = '{"param1": "value1", "param2": "value2"}';
+
+            var modal = document.getElementById("myModal");
+            modal.style.display = "block";
+	    modal.setAttribute("data-parent_id", parent_id);
+
+	    document.getElementById("json-output").textContent = input_output[parent_id];
+
+            var closeOutside = document.createElement("span");
+            closeOutside.className = "close-outside";
+            closeOutside.innerHTML = "&times;";
+            closeOutside.onclick = function () {
+                closeModal();
+            };
+
+            document.getElementsByClassName("modal-content")[0].appendChild(closeOutside);
+
+            document.getElementById("json-input").value = inputContent;
+
+	    document.getElementById("rerun-btn").onclick = function () {
+                input_output[parent_id] = "";
+		document.getElementById("json-output").textContent = "";
+
+            };
+        }
+
+        function closeModal() {
+            var modal = document.getElementById("myModal");
+            modal.style.display = "none";
+
+            var closeOutside = document.querySelector(".close-outside");
+            if (closeOutside) {
+                closeOutside.remove();
+            }
+        }
+
+
+	for (let item of {{ history_seq|tojson }})
+	{
+            console.log(item);
+	    let item_content = {{ history|tojson }}[item];
+	    console.log(item_content);
+	    createHistory(item_content.cpu_count, item_content.ram_val, item_content.os_selected, item_content.file_name, item_content.run_type, item_content.server_time, item_content.event_source)
+	}
+    </script>
+
+</body>
+
+</html>
+

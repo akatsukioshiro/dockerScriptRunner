@@ -1,0 +1,11 @@
+version: '3.8'
+services:
+  job_runner:
+    build: .
+    container_name: "{{ all_names }}"
+    hostname: "{{ all_names }}"
+    volumes:
+      -  {{ file_dir }}:/{{ all_names }}
+volumes:
+  job_runner:
+    driver: local

@@ -1,0 +1,11 @@
+version: '3.8'
+services:
+  job_runner:
+    build: .
+    container_name: "2024_01_30_23_59_23_056072"
+    hostname: "2024_01_30_23_59_23_056072"
+    volumes:
+      -  /mnt/f/Desktop/test/dockerScriptRunner/data/history/test_user_1/files/2024_01_30_23_59_23_056072:/2024_01_30_23_59_23_056072
+volumes:
+  job_runner:
+    driver: local

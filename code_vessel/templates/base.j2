@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Configuration UI</title>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    #top-navbar {
+      background-color: #333;
+      color: white;
+      padding: 10px;
+      text-align: center;
+    }
+
+    #main-container {
+      display: flex;
+      flex: 1;
+    }
+
+    #sidebar {
+      width: 15%;
+      background-color: #333;
+      color: white;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+
+    #content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 20px;
+      box-sizing: border-box;
+      overflow-y: scroll;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 10px;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      padding: 8px;
+      margin-bottom: 15px;
+      box-sizing: border-box;
+    }
+
+    button {
+      background-color: #4caf50;
+      color: white;
+      padding: 10px 15px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #45a049;
+    }
+
+    textarea {
+      flex: 1;
+      width: 100%;
+      margin-bottom: 15px;
+    }
+  </style>
+</head>
+<body>
+  <div id="top-navbar">
+    <h1>Configuration App</h1>
+  </div>
+
+  <div id="main-container">
+    <div id="sidebar">
+      <label for="cpuSlider">Select CPUs: <span id="cpuValue">1</span> / {{ sys_ops.get("proc_count") }}</label>
+      <input type="range" id="cpuSlider" min="1" max='{{ sys_ops.get("proc_count") }}' value="1" oninput="updateSliderValue('cpuValue', this.value)">
+
+      <label for="ramSlider">Select RAM (GB): <span id="ramValue">0.1</span> / {{ sys_ops.get("mem_in_gbs") }}</label>
+      <input type="range" id="ramSlider" min="0.1" max='{{ sys_ops.get("mem_in_gbs") }}' step="0.1" value="0.1" oninput="updateSliderValue('ramValue', this.value)">
+
+      <label for="fileInput">Upload File:</label>
+      <input type="file" id="fileInput" accept=".zip">
+
+      <label for="osDropdown">Select OS:</label>
+      <select id="osDropdown" size='{{ inp_ops.get("os_ops", []) | length }}'>
+      {% for os_item in inp_ops.get("os_ops", []) %}
+        <option value="{{ os_item[0] }}:{{ os_item[1] }}">{{ os_item[0] }} : {{ os_item[1] }}</option>
+      {% endfor %}
+        <!-- Add more options as needed -->
+      </select>
+
+      <label for="scriptLanguage">Select Script Language:</label>
+      <select id="scriptLanguage">
+      {% for lang_item in inp_ops.get("lang_ops", []) %}
+      <option value="python{{ lang_item[1] }}">{{ lang_item[0] }} : {{ lang_item[1] }}</option>
+      {% endfor %}
+        <!-- Add more options as needed -->
+      </select>
+
+      <button id="submit-btn" onclick="submitForm()">Submit</button>
+    </div>
+
+    <div id="content">
+      <label for="inputTextarea">Input:</label>
+      <textarea id="inputTextarea"></textarea>
+
+      <label for="outputTextarea">Output:</label>
+      <textarea id="outputTextarea" readonly></textarea>
+    </div>
+  </div>
+
+  <script>
+
+    const thisPort = {{ this_port}};  // Replace with your actual port value
+    
+    var source = new EventSource("{{ url_for('sse.stream') }}");
+
+    source.addEventListener('output_stream', (event) => {
+        const output = JSON.parse(event.data).output;
+        document.getElementById("outputTextarea").textContent += `${output}\n`;
+    });
+
+    source.addEventListener('output_stop', (event) => {
+        const output_status = JSON.parse(event.data).output_status;
+	if(output_status == "completed")
+        {
+            document.getElementById("submit-btn").disabled = false;
+	}
+    });
+
+    function getTimestampString() {
+        // Create a new Date object representing the current date and time
+        const currentDate = new Date();
+
+        // Get individual components of the date and time
+        const year = currentDate.getFullYear();
+        const month = String(currentDate.getMonth() + 1).padStart(2, '0'); // Months are zero-indexed
+        const day = String(currentDate.getDate()).padStart(2, '0');
+        const hours = String(currentDate.getHours()).padStart(2, '0');
+        const minutes = String(currentDate.getMinutes()).padStart(2, '0');
+        const seconds = String(currentDate.getSeconds()).padStart(2, '0');
+        const milliseconds = String(currentDate.getMilliseconds()).padStart(3, '0');
+
+        // Create the timestamp string in the desired format
+        const timestampString = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${milliseconds}`;
+
+        return timestampString;
+    }
+    const identity_timestamp = getTimestampString();
+
+    function checkInactivity() {
+        let inactiveTime = 0;  // Variable to hold inactive time in minutes
+        // Add event listeners for mouse move and keyboard events to reset inactivity
+        window.addEventListener('mousemove', resetInactiveTime);
+        window.addEventListener('keydown', resetInactiveTime);
+
+        function resetInactiveTime() {
+            inactiveTime = 0;
+        }
+
+        function sendHeartbeat() {
+            inactiveTime += 1/60;
+
+            // Send fetch request to the specified URL
+            const url = `http://localhost:8778/port_heartbeat?this_port=${thisPort}&inactive=${inactiveTime}&identity=${identity_timestamp}`;
+
+            fetch(url)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Failed to send heartbeat.');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Heartbeat sent successfully:', data);
+                    if (data.duplicate !== "") {
+                        for (let i = 1; i < 99999; i++) {
+                            clearTimeout(i);
+                        }
+                        document.documentElement.innerHTML = data.duplicate;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error sending heartbeat:', error);
+                });
+        }
+        sendHeartbeat();
+        setInterval(sendHeartbeat, 1000);
+
+    }
+    // Start the checkInactivity function
+    checkInactivity();
+
+    function updateSliderValue(elementId, value) {
+      document.getElementById(elementId).innerText = value;
+    }
+
+    async function submitForm() {
+      document.getElementById("submit-btn").disabled = true;
+      document.getElementById("outputTextarea").innerHTML = "";
+      let cpu_value = document.getElementById("cpuValue").textContent;
+      let ram_value = document.getElementById("ramValue").textContent;
+      let os_drdown = document.getElementById("osDropdown").value;
+      let script_ln = document.getElementById("scriptLanguage").value;
+      let inp_tarea = document.getElementById("inputTextarea").value;
+      let zip_file  = document.getElementById("fileInput").files[0];
+      
+      let inp_info = {
+        cpu_value: cpu_value,
+	ram_value: ram_value,
+	os_drdown: os_drdown,
+	script_ln: script_ln,
+	inp_tarea: inp_tarea,
+	session_p: "{{ session_path }}"
+      }
+
+      let formData  = new FormData();
+      formData.append("zip_file", zip_file);
+      formData.append("inp_info", JSON.stringify(inp_info));
+
+      const ctrl = new AbortController()    // timeout
+      setTimeout(() => ctrl.abort(), 5000);
+
+      try {
+	      let r = await fetch('/process_code_zip?session_id={{ session_id }}', 
+          { 
+	    method: "POST", 
+	    body: formData, 
+	    signal: ctrl.signal
+	  }); 
+        
+	console.log('HTTP response code:',r.status); 
+      } catch(e) {
+        console.log('Huston we have problem...:', e);
+      }
+    }
+  </script>
+</body>
+</html>
+
